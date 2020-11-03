@@ -1,11 +1,12 @@
 package com.github.taymindis.jdc;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+
+import static com.github.taymindis.jdc.Jdc.getClassPath;
 
 class RuntimeClassLoader extends ClassLoader{
     private Class<?> thisClass;
@@ -15,8 +16,7 @@ class RuntimeClassLoader extends ClassLoader{
     }
 
     protected Class<?> load() throws IOException {
-        String fullPath = "file:".concat(thisClass.getProtectionDomain().getCodeSource().getLocation()
-                .getPath()).concat(thisClass.getCanonicalName().replace(".", File.separator ).concat(".class"));
+        String fullPath = getClassPath(thisClass);
         return load(fullPath);
     }
 
@@ -24,7 +24,7 @@ class RuntimeClassLoader extends ClassLoader{
         InputStream input = null;
         ByteArrayOutputStream buffer = null;
         try {
-            URL myUrl = new URL(classPath);
+            URL myUrl = new URL("file:".concat(classPath));
             URLConnection connection = myUrl.openConnection();
             input = connection.getInputStream();
             buffer = new ByteArrayOutputStream();
