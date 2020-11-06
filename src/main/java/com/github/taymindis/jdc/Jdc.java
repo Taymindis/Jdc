@@ -14,10 +14,10 @@ import static java.lang.reflect.Modifier.isPublic;
 public class Jdc implements Serializable {
 
 
-    private static final Map<String, Wired> backupCache = new HashMap<>();
-    private static final Map<String, Wired> cache = new HashMap<>();
-    
-    public static Wired wireBean(Class<?> clazz) throws IOException, ClassNotFoundException, IllegalAccessException {
+    private static final Map<String, WiredClass> backupCache = new HashMap<>();
+    private static final Map<String, WiredClass> cache = new HashMap<>();
+
+    public static <T> T wireBean(Class<?> clazz) throws IOException, IllegalAccessException {
         return wireBean(clazz, getClassPath(clazz));
     }
 
@@ -25,47 +25,60 @@ public class Jdc implements Serializable {
     /**
      * @param clazz         the current class
      * @param classFilePath classFilePath /user/home/../../xxx.class
-     * @param
-     * @return
-     * @throws IOException
-     * @throws ClassNotFoundException
+     * @return WiredContext
+     * @throws IOException            IO Class not found
+     * @throws IllegalAccessException Illegal Bean Access
      */
-    public static Wired wireBean(Class<?> clazz, String classFilePath) throws IOException, ClassNotFoundException, IllegalAccessException {
-        if(!Serializable.class.isAssignableFrom(clazz)) {
+    public static <T> T wireBean(Class<?> clazz, String classFilePath) throws IOException, IllegalAccessException {
+        if (!Serializable.class.isAssignableFrom(clazz)) {
             throw new NotSerializableException(clazz.getName().concat(" should be serializable"));
         }
-        if(!isPublic(clazz.getModifiers())) {
+        if (!isPublic(clazz.getModifiers())) {
             throw new IllegalAccessException(clazz.getName().concat(" should be public class"));
         }
         String key = generateKey(clazz);
-        Wired wired;
+        WiredContext wiredContext;
         if (!has(key)) {
             if (classFilePath == null) {
                 classFilePath = getClassPath(clazz);
             }
-            Class<?> wiredClass = wireClass(clazz, classFilePath);
-            try {
-                Object wiredObject = instantiate(wiredClass);
-                wired = new Wired(wiredObject, wiredObject.getClass(), key,
-                        classFilePath);
-                store(key, wired);
-            } catch (InstantiationException | NoSuchMethodException | InvocationTargetException e) {
-                wired = hasBackup(key) ? retrieveBackup(key) : null;
-                e.printStackTrace();
-            }
+            WiredClass wiredClass = wireClass(key, clazz, classFilePath);
+            wiredContext = getNewContext(wiredClass, clazz);
+            store(key, wiredClass);
         } else {
-            wired = retrieve(key);
+            WiredClass wiredClass = retrieve(key);
+            wiredContext = getNewContext(wiredClass, clazz);
         }
-        return wired;
+        return (T) wiredContext;
+    }
+
+    private static WiredContext getNewContext(WiredClass wiredClass, Class<?> originClass) {
+        try {
+            Class<?> newLoadedClass = wiredClass.getClazz();
+            Object wiredObject = instantiate(newLoadedClass);
+            WiredContext wiredContext = (WiredContext) originClass.getConstructor().newInstance();
+            wiredContext.setCtx(wiredObject);
+            wiredContext.set_wiringjdc_(true);
+            wiredContext.setClassUsing(newLoadedClass);
+            return wiredContext;
+//                wiredContext = new WiredContext(wiredObject, wiredObject.getClass(), key,
+//                        classFilePath);
+//                store(key, wiredClass);
+        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+//                wiredContext = hasBackup(key) ? retrieveBackup(key) : null;
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private static Object instantiate(Class<?> wiredClass) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         return wiredClass.cast(wiredClass.getConstructor().newInstance());
+//        return castObj(wiredClass.getConstructor().newInstance());
     }
 
     protected static String getClassPath(Class<?> clz) {
         return clz.getProtectionDomain().getCodeSource().getLocation()
-                .getPath().concat(clz.getCanonicalName().replace(".", File.separator ).concat(".class"));
+                .getPath().concat(clz.getCanonicalName().replace(".", File.separator).concat(".class"));
     }
 
 
@@ -122,19 +135,14 @@ public class Jdc implements Serializable {
 //        T parsedObj = (T) gson.fromJson(gson.toJson(o), clz);
 //        return parsedObj;
 //    }
-
-
-    private static Class<?> wireClass(Class<?> clazz, String classFilePath) {
-        RuntimeClassLoader cl = new RuntimeClassLoader(clazz);
+    private static WiredClass wireClass(String key, Class<?> clazz, String classFilePath) {
+        WiredClassLoader cl = new WiredClassLoader(clazz);
         try {
-           return classFilePath != null ? cl.load(classFilePath) : cl.load();
-//            if (!(instance instanceof Serializable)) {
-//                throw new NotSerializableException("Please serialize your Class with implements Serializable");
-//            }
+            Class<?> clz = classFilePath != null ? cl.load(classFilePath) : cl.load();
+            WiredClass wiredClass = new WiredClass(key, clz, classFilePath);
+            return wiredClass;
         } catch (Exception e) {
             e.printStackTrace();
-            // Fall back to initial classloading instance if backup not found
-
         }
         return null;
     }
@@ -144,11 +152,11 @@ public class Jdc implements Serializable {
         return cache.containsKey(key);
     }
 
-    public static void store(String key, Wired wired) {
-        cache.put(key, wired);
+    public static void store(String key, WiredClass wiredContext) {
+        cache.put(key, wiredContext);
     }
 
-    public static Wired retrieve(String key) {
+    public static WiredClass retrieve(String key) {
         return cache.get(key);
     }
 
@@ -156,41 +164,41 @@ public class Jdc implements Serializable {
         return backupCache.containsKey(key);
     }
 
-    public static void storeBackup(String key, Wired wired) {
-        backupCache.put(key, wired);
+    public static void storeBackup(String key, WiredClass wiredContext) {
+        backupCache.put(key, wiredContext);
     }
 
-    public static Wired retrieveBackup(String key) {
+    public static WiredClass retrieveBackup(String key) {
         return backupCache.get(key);
     }
 
-    public static void reload() {
-        reload(false);
-    }
+//    public static void reload() {
+//        reload(false);
+//    }
 
-    public synchronized static void reload(boolean rollbackable) {
-        if (rollbackable) {
-            backupCache.clear();
-            backupCache.putAll(cache);
-        }
-
-//        List<String> deletedKeys = new ArrayList<>();
-        Class<?> wiredClass;
-        for (Wired oldWired : cache.values()) {
-            try {
-                wiredClass = wireClass(oldWired.getClz(), oldWired.getClassPath());
-                Object instance = instantiate(wiredClass);
-                oldWired.setClz(instance.getClass());
-                oldWired.setCtx(instance);
-            } catch (IllegalAccessException | NoSuchMethodException | InstantiationException | InvocationTargetException e) {
-                e.printStackTrace();
-            }
-        }
-
-//        for(String key:deletedKeys) {
-//            cache.remove(key);
+//    public synchronized static void reload(boolean rollbackable) {
+//        if (rollbackable) {
+//            backupCache.clear();
+//            backupCache.putAll(cache);
 //        }
-    }
+//
+////        List<String> deletedKeys = new ArrayList<>();
+//        WiredClass wiredClass;
+//        for (WiredClass oldWiredClass : cache.values()) {
+//            try {
+//                wiredClass = wireClass(oldWiredClass.getKey(), oldWiredClass.getClazz(), oldWiredClass.getClassPath());
+//                Object instance = instantiate(wiredClass);
+//                oldWiredClass.setWiredClass(instance.getClass());
+//                oldWiredClass.setCtx(instance);
+//            } catch (IllegalAccessException | NoSuchMethodException | InstantiationException | InvocationTargetException | IOException | ClassNotFoundException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//
+////        for(String key:deletedKeys) {
+////            cache.remove(key);
+////        }
+//    }
 
 //    public static void reload(Class<?> clazz) {
 //        reload(clazz, false);

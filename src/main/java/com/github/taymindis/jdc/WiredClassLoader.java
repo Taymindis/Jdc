@@ -8,9 +8,9 @@ import java.net.URLConnection;
 
 import static com.github.taymindis.jdc.Jdc.getClassPath;
 
-class RuntimeClassLoader extends ClassLoader{
+class WiredClassLoader extends ClassLoader{
     private Class<?> thisClass;
-    protected RuntimeClassLoader(Class<?> thisClass) {
+    protected WiredClassLoader(Class<?> thisClass) {
         super(thisClass.getClassLoader());
         this.thisClass = thisClass;
     }

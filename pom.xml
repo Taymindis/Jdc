@@ -71,6 +71,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/javassist/javassist -->
+        <dependency>
+            <groupId>javassist</groupId>
+            <artifactId>javassist</artifactId>
+            <version>3.12.1.GA</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -129,15 +136,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.5.1</version>
-                <configuration>
-                    <source>7</source>
-                    <target>7</target>
-                </configuration>
-            </plugin>
             <!-- override version of GPG plugin to use new GPG signing features -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -157,24 +155,80 @@
                 <version>2.22.0</version>
             </plugin>
 
-            <!--            <plugin>-->
-            <!--                <artifactId>maven-assembly-plugin</artifactId>-->
-            <!--                <executions>-->
-            <!--                    <execution>-->
-            <!--                        <phase>package</phase>-->
-            <!--                        <goals>-->
-            <!--                            <goal>single</goal>-->
-            <!--                        </goals>-->
-            <!--                    </execution>-->
-            <!--                </executions>-->
-            <!--                <configuration>-->
-            <!--                    <descriptorRefs>-->
-            <!--                        <descriptorRef>jar-with-dependencies</descriptorRef>-->
-            <!--                    </descriptorRefs>-->
-            <!--                    <finalName>${project.artifactId}-bundle-${project.version}</finalName>-->
-            <!--                    <appendAssemblyId>false</appendAssemblyId>-->
-            <!--                </configuration>-->
-            <!--            </plugin>-->
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                    <proc>none</proc>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>validate</phase>
+                        <configuration>
+                            <proc>none</proc>
+                            <includes>
+                                <include>com/github/taymindis/jdc/Jdc.java</include>
+                                <include>com/github/taymindis/jdc/WiredProcessor.java</include>
+                                <include>com/github/taymindis/jdc/Wired.java</include>
+                                <include>com/github/taymindis/jdc/WiredContext.java</include>
+                                <include>com/github/taymindis/jdctest/TestBean.java</include>
+                                <include>com/github/taymindis/jdctest/TestClass.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <proc>only</proc>
+                            <annotationProcessors>
+                                <annotationProcessor>com.github.taymindis.jdc.WiredProcessor</annotationProcessor>
+                            </annotationProcessors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>com/github/taymindis/jdctest/*.*</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <descriptors>
+                        <descriptor>assembly-exclude-class.xml</descriptor>
+                    </descriptors>
+                    <finalName>${project.build.finalName}-bundle-${project.version}</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
