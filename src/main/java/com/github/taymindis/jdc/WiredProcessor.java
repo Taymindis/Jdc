@@ -91,28 +91,21 @@ public class WiredProcessor extends AbstractProcessor {
                         method.setExceptionTypes(newCtclasses.toArray(new CtClass[0]));
 
                         StringBuilder coreBlock = new StringBuilder("{  Object rs;  ");
-//                        coreBlock.append("if(!this.is_wiringjdc_()) { ");
-//                        coreBlock.append(isVoidReturn ? "" : " rs = ").append(coreMethod.getName()).append("($$);");
-//                        coreBlock.append(" } else {  ");
 
+                        // If conditionaling both side usage
+                        coreBlock.append("if(!this.is_wiringjdc_()) { ");
+                        coreBlock.append(" rs = ($r) ").append(coreMethod.getName()).append("($$);");
+                        coreBlock.append(" } else {  ");
 
                         coreBlock.append("rs = ($r) this.invoke(\"");
                         coreBlock.append(coreMethodName).append("\"");
-
                         coreBlock.append(isStatic ? ",true" : ", false");
-
                         coreBlock.append(", $sig, $args");
-
-                        coreBlock.append(");  ");
-
+                        coreBlock.append("); } ");
                         coreBlock.append("  return ($r) rs; } ");
 
-
 //                        setBodyKeepParamInfos(method, coreBlock.toString(), true);
-
-
 //                        method.insertAt(0, coreBlock.toString());
-
 //                        method.instrument(new MethodReplacer(method,coreMethod));
 
                         CtMethod newM = CtNewMethod.make(method.getModifiers(),
