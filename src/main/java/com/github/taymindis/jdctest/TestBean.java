@@ -8,7 +8,7 @@ import java.io.Serializable;
 public class TestBean implements Serializable {
 
     public String myMethod(String abc, Integer a)  {
-        return "asdasdasda";
+        return "TestBean.............";
     }
     public void execute(String abc, Integer a)  {
          System.out.println("XXXXXXXXX");

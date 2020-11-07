@@ -1,185 +1,126 @@
 package com.github.taymindis.jdc;
 
-import javassist.*;
-import javassist.bytecode.*;
-import javassist.compiler.CompileError;
-import javassist.compiler.Javac;
-import javassist.expr.ExprEditor;
-import javassist.expr.MethodCall;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.Trees;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.*;
+import javax.lang.model.util.ElementFilter;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import java.io.IOException;
-import java.util.HashSet;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+
+import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_PREFIX;
+import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_SUFFIX;
 
 @SupportedAnnotationTypes("com.github.taymindis.jdc.Wired")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class WiredProcessor extends AbstractProcessor {
-    protected static final String WIRE_PREFIX = "_wire_";
-    private static final String WIRED_SUPER_CLASS = "com.github.taymindis.jdc.WiredContext";
-    private static int methodIndex = 0;
-//    private Trees trees;
+
+    private Trees trees;
 
     @Override
-    public void init(ProcessingEnvironment processingEnv) {
+    public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
-//        trees = Trees.instance(processingEnv);
+        trees = Trees.instance(processingEnv);
     }
 
     @Override
-    public boolean process(final Set<? extends TypeElement> annotations,
-                           final RoundEnvironment roundEnv) {
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        for (final Element element : roundEnv.getElementsAnnotatedWith(Wired.class)) {
+            final TypeElement typeElement = ( TypeElement )element;
+            if(!hasDefaultConstructor(typeElement)) {
+                return true;
+            }
+            final PackageElement packageElement = ( PackageElement )typeElement.getEnclosingElement();
+            final String targetClassName = typeElement.getSimpleName().toString();
+            final String proxyClassName = WIRE_PROXY_PREFIX+typeElement.getSimpleName()+WIRE_PROXY_SUFFIX;
 
+            WireProxyGenerator wireProxyGenerator =
+                    new WireProxyGenerator(packageElement.getQualifiedName().toString(),
+                            targetClassName, proxyClassName);
+            for (ExecutableElement executableElement :
+                    ElementFilter.methodsIn(element.getEnclosedElements())) {
 
-        try {
-            final ClassPool pool = ClassPool.getDefault();
+//                if (executableElement.getAnnotation(Mandatory.class) != null) {
+//                    mandatoryFields.add(fieldName);
+//                }
+                MethodScanner methodScanner = new MethodScanner();
+                MethodTree methodTree = methodScanner.scan(executableElement, this.trees);
 
-            CtClass wiredSuperClass = getWiredSuperClass(pool);
-            CtClass invocationExceptionClass = pool.get("java.lang.reflect.InvocationTargetException");
-            CtClass illegalAccessExceptionClass = pool.get("java.lang.IllegalAccessException");
+//                methodTree.getParameters().get(0).getType().accept()
+//                executableElement.getParameters().get(1).asType().toString()
+//                executableElement.getParameters().get(0).asType().toString()
+//                executableElement.getParameters().get(1).asType();
 
-
-            for (final Element element : roundEnv.getElementsAnnotatedWith(Wired.class)) {
-                if (element instanceof TypeElement) {
-                    final TypeElement typeElement = (TypeElement) element;
-
-                    final String className = typeElement.getQualifiedName() + "";
-                    Class<?> clz = Class.forName(className);
-
-                    ClassClassPath ccpath = new ClassClassPath(clz);
-                    pool.insertClassPath(ccpath);
-                    final CtClass compiledClass;
-                    compiledClass = pool.get(className);
-                    compiledClass.setSuperclass(wiredSuperClass);
-
-                    final CtMethod methods[] = compiledClass.getDeclaredMethods();
-
-                    for (CtMethod method : methods) {
-
-                        String coreMethodName = String.format("_%d%s%s", methodIndex++, WIRE_PREFIX, method.getName());
-
-                        CtMethod coreMethod = CtNewMethod.copy(method, coreMethodName,
-                                compiledClass, null);
-                        compiledClass.addMethod(coreMethod);
-
-                        boolean isVoidReturn = method.getReturnType().equals(CtClass.voidType);
-                        boolean isStatic = Modifier.isStatic(method.getModifiers());
-
-//                        MethodInfo methodInfo = method.getMethodInfo();
-//                        LocalVariableAttribute table = (LocalVariableAttribute) methodInfo.getCodeAttribute().getAttribute(LocalVariableAttribute.tag);
-//                        List<String> parameterName = new ArrayList<>();
-//                        for (int i = 0, sz = method.getParameterTypes().length; i < sz; i++) {
-//                            parameterName.add(methodInfo.getConstPool().getUtf8Info(table.nameIndex(i + 1)));
-//                        }
-
-//                         Bug stack mapping issue
-//                        setBodyKeepParamInfos(method, "{}", false);
-
-                        CtClass ctClasses[] = method.getExceptionTypes();
-
-                        Set<CtClass> newCtclasses = new HashSet<>();
-
-                        for (CtClass ctClass : ctClasses) {
-                            newCtclasses.add(ctClass);
-                        }
-
-                        newCtclasses.add(invocationExceptionClass);
-                        newCtclasses.add(illegalAccessExceptionClass);
-                        method.setExceptionTypes(newCtclasses.toArray(new CtClass[0]));
-
-                        StringBuilder coreBlock = new StringBuilder("{  Object rs;  ");
-
-                        // If conditionaling both side usage
-                        coreBlock.append("if(!this.is_wiringjdc_()) { ");
-                        coreBlock.append(" rs = ($r) ").append(coreMethod.getName()).append("($$);");
-                        coreBlock.append(" } else {  ");
-
-                        coreBlock.append("rs = ($r) this.invoke(\"");
-                        coreBlock.append(coreMethodName).append("\"");
-                        coreBlock.append(isStatic ? ",true" : ", false");
-                        coreBlock.append(", $sig, $args");
-                        coreBlock.append("); } ");
-                        coreBlock.append("  return ($r) rs; } ");
-
-//                        setBodyKeepParamInfos(method, coreBlock.toString(), true);
-//                        method.insertAt(0, coreBlock.toString());
-//                        method.instrument(new MethodReplacer(method,coreMethod));
-
-                        CtMethod newM = CtNewMethod.make(method.getModifiers(),
-                                method.getReturnType(),
-                                method.getName(), method.getParameterTypes(), method.getExceptionTypes(), coreBlock.toString(), compiledClass);
-
-//                        newM.setName("X" + method.getName());
-
-                        compiledClass.removeMethod(method);
-                        compiledClass.addMethod(newM);
-
-                    }
-
-                    compiledClass.writeFile(clz.getProtectionDomain().getCodeSource().getLocation()
-                            .getPath());
-
+                WireProxyGenerator.Method method = new WireProxyGenerator.Method(executableElement, methodTree);
+                for(VariableElement v: executableElement.getParameters()) {
+                    method.addParameter(v.asType().toString(), v.getSimpleName().toString());
                 }
+
+                wireProxyGenerator.addMethod(method);
             }
 
-        } catch (NotFoundException | CannotCompileException | IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-            System.out.println("Issue ");
+
+            try {
+                final JavaFileObject fileObject = processingEnv.getFiler().createSourceFile(
+                        packageElement.getQualifiedName() + "." + proxyClassName);
+
+                try( Writer writter = fileObject.openWriter() ) {
+                    writter.append(wireProxyGenerator.compileToString());
+                }
+            } catch( final IOException ex ) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, ex.getMessage());
+            }
         }
         return true;
     }
 
-    private CtClass getWiredSuperClass(final ClassPool pool) throws NotFoundException, ClassNotFoundException {
-        String wireClassName = WIRED_SUPER_CLASS;
-        Class<?> superClz = Class.forName(wireClassName);
-        pool.insertClassPath(new ClassClassPath(superClz));
-        return pool.get(wireClassName);
+
+    private static class MethodScanner extends TreePathScanner<List<MethodTree>, Trees> {
+        private List<MethodTree> methodTrees = new ArrayList<>();
+
+        public MethodTree scan(ExecutableElement methodElement, Trees trees) {
+            assert methodElement.getKind() == ElementKind.METHOD;
+
+            List<MethodTree> methodTrees = this.scan(trees.getPath(methodElement), trees);
+            assert methodTrees.size() == 1;
+
+            return methodTrees.get(0);
+        }
+
+        @Override
+        public List<MethodTree> scan(TreePath treePath, Trees trees) {
+            super.scan(treePath, trees);
+            return this.methodTrees;
+        }
+
+        @Override
+        public List<MethodTree> visitMethod(MethodTree methodTree, Trees trees) {
+            this.methodTrees.add(methodTree);
+            return super.visitMethod(methodTree, trees);
+        }
     }
 
-    private static void setBodyKeepParamInfos(CtMethod m, String src, boolean rebuild) throws CannotCompileException {
-        CtClass cc = m.getDeclaringClass();
-        if (cc.isFrozen()) {
-            throw new RuntimeException(cc.getName() + " class is frozen");
-        }
-        CodeAttribute ca = m.getMethodInfo().getCodeAttribute();
-        if (ca == null) {
-            throw new CannotCompileException("no method body");
-        } else {
-            CodeIterator iterator = ca.iterator();
-            Javac jv = new Javac(cc);
 
-            try {
-                int nvars = jv.recordParams(m.getParameterTypes(), Modifier.isStatic(m.getModifiers()));
-                jv.recordParamNames(ca, nvars);
-                jv.recordLocalVariables(ca, 0);
-                jv.recordReturnType(Descriptor.getReturnType(m.getMethodInfo().getDescriptor(), cc.getClassPool()), false);
-                //jv.compileStmnt(src);
-                //Bytecode b = jv.getBytecode();
-                Bytecode b = jv.compileBody(m, src);
-                int stack = b.getMaxStack();
-                int locals = b.getMaxLocals();
-                if (stack > ca.getMaxStack()) {
-                    ca.setMaxStack(stack);
-                }
 
-                if (locals > ca.getMaxLocals()) {
-                    ca.setMaxLocals(locals);
-                }
-                int pos = iterator.insertEx(b.get());
-                iterator.insert(b.getExceptionTable(), pos);
-                if (rebuild) {
-                    m.getMethodInfo().rebuildStackMapIf6(cc.getClassPool(), cc.getClassFile2());
-                }
-            } catch (NotFoundException var12) {
-                throw new CannotCompileException(var12);
-            } catch (CompileError var13) {
-                throw new CannotCompileException(var13);
-            } catch (BadBytecode badBytecode) {
-                badBytecode.printStackTrace();
-            }
+    private boolean hasDefaultConstructor(TypeElement type) {
+        for (ExecutableElement cons :
+                ElementFilter.constructorsIn(type.getEnclosedElements())) {
+            if (cons.getParameters().isEmpty())
+                return true;
         }
+
+        processingEnv.getMessager().printMessage(
+                Diagnostic.Kind.ERROR, String.format("%s is missing a default constructor", type.getSimpleName()),
+                type);
+        return false;
     }
 }

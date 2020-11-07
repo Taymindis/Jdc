@@ -6,6 +6,8 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
+import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_PREFIX;
+import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_SUFFIX;
 import static java.lang.reflect.Modifier.isPublic;
 
 /**
@@ -37,34 +39,43 @@ public class Jdc implements Serializable {
             throw new IllegalAccessException(clazz.getName().concat(" should be public class"));
         }
         String key = generateKey(clazz);
-        WiredContext wiredContext;
+        Object wiredProxy;
         if (!has(key)) {
             if (classFilePath == null) {
                 classFilePath = getClassPath(clazz);
             }
             WiredClass wiredClass = wireClass(key, clazz, classFilePath);
-            wiredContext = getNewContext(wiredClass, clazz);
+            wiredProxy = getNewContext(wiredClass, clazz);
             store(key, wiredClass);
         } else {
             WiredClass wiredClass = retrieve(key);
-            wiredContext = getNewContext(wiredClass, clazz);
+            wiredProxy = getNewContext(wiredClass, clazz);
         }
-        return (T) wiredContext;
+        return (T) wiredProxy;
     }
 
-    private static WiredContext getNewContext(WiredClass wiredClass, Class<?> originClass) {
+    private static Object getNewContext(WiredClass wiredClass, Class<?> originClass) {
         try {
+            Class<?> wireProxyClass = wiredClass.getProxyClass();
+            if(wireProxyClass == null) {
+                wireProxyClass = Class.forName(originClass.getPackage().getName().concat(".").concat(WIRE_PROXY_PREFIX)
+                        .concat(originClass.getSimpleName()).concat(WIRE_PROXY_SUFFIX));
+                wiredClass.setProxyClass(wireProxyClass);
+            }
+
+            Object wiredProxy = wireProxyClass.getConstructor().newInstance();
+
             Class<?> newLoadedClass = wiredClass.getClazz();
             Object wiredObject = instantiate(newLoadedClass);
-            WiredContext wiredContext = (WiredContext) originClass.getConstructor().newInstance();
-            wiredContext.setCtx(wiredObject);
-            wiredContext.set_wiringjdc_(true);
-            wiredContext.setClassUsing(newLoadedClass);
-            return wiredContext;
+            wireProxyClass.getDeclaredMethod("setCtx", Object.class).invoke(wiredProxy, wiredObject);
+            wireProxyClass.getDeclaredMethod("set_wiringjdc_", boolean.class).invoke(wiredProxy, true);
+            wireProxyClass.getDeclaredMethod("setClassUsing", Class.class).invoke(wiredProxy, newLoadedClass);
+
+            return wiredProxy;
 //                wiredContext = new WiredContext(wiredObject, wiredObject.getClass(), key,
 //                        classFilePath);
 //                store(key, wiredClass);
-        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException | ClassNotFoundException e) {
 //                wiredContext = hasBackup(key) ? retrieveBackup(key) : null;
             e.printStackTrace();
         }
@@ -200,17 +211,17 @@ public class Jdc implements Serializable {
 ////        }
 //    }
 
-//    public static void reload(Class<?> clazz) {
-//        reload(clazz, false);
-//    }
+    public static void reload(Class<?> clazz) {
+        reload(clazz, false);
+    }
 //
-//    public static void reload(Class<?> clazz, boolean rollbackable) {
-//        String key = generateKey(clazz);
-//        if (rollbackable && cache.containsKey(key)) {
-//            storeBackup(key, retrieve(key));
-//        }
-//        cache.remove(key);
-//    }
+    public static void reload(Class<?> clazz, boolean rollbackable) {
+        String key = generateKey(clazz);
+        if (rollbackable && cache.containsKey(key)) {
+            storeBackup(key, retrieve(key));
+        }
+        delete(key);
+    }
 
     // not thread  safe
     public static void delete(String key) {

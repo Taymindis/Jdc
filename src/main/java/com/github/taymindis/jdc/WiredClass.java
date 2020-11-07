@@ -4,6 +4,7 @@ public class WiredClass {
 
     private String key;
     private Class<?> clazz;
+    private Class<?> proxyClass;
     private String classPath;
 
     public WiredClass(String key, Class<?> clazz, String classPath) {
@@ -34,5 +35,13 @@ public class WiredClass {
 
     protected void setClassPath(String classPath) {
         this.classPath = classPath;
+    }
+
+    protected Class<?> getProxyClass() {
+        return proxyClass;
+    }
+
+    protected void setProxyClass(Class<?> proxyClass) {
+        this.proxyClass = proxyClass;
     }
 }
