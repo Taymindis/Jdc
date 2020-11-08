@@ -11,6 +11,9 @@ public class TestBean implements Serializable {
         return "TestBean.............";
     }
     public void execute(String abc, Integer a)  {
-         System.out.println("XXXXXXXXX");
+         System.out.println("ASDASDASDASD");
+    }
+    public static void staticCall(String abc, Integer a)  {
+         System.out.println("ASDASASDASDASDASDASDASD");
     }
 }

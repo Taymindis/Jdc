@@ -2,7 +2,10 @@ package com.github.taymindis.jdc;
 
 import com.sun.source.tree.MethodTree;
 
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.tools.Diagnostic;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,11 +27,11 @@ public class WireProxyGenerator {
     }
 
 
-    public String compileToString() {
+    public String compileToString(ProcessingEnvironment processingEnv) {
         StringBuilder methodBuilder = new StringBuilder();
 
         for (Method m : methods) {
-            methodBuilder.append(m.compileToString());
+            methodBuilder.append(m.compileToString(processingEnv, targetClassName));
         }
 
         return String.format("package %s;\n" +
@@ -83,8 +86,9 @@ public class WireProxyGenerator {
         private final List<String> parameterTypes;
         private final String returnType;
         private final String modifier;
-        private final String methodBody;
+        //        private final String methodBody;
         private final boolean isVoid;
+        private final boolean isStatic;
 
         public Method(ExecutableElement executableElement, MethodTree tree) {
             this.name = tree.getName() + "";
@@ -92,8 +96,9 @@ public class WireProxyGenerator {
             this.returnType = executableElement.getReturnType().toString();
             this.parameterNames = new ArrayList<>();
             this.parameterTypes = new ArrayList<>();
-            this.methodBody = tree.getBody().toString();
+//            this.methodBody = tree.getBody().toString();
             isVoid = this.returnType.equals("void");
+            this.isStatic = executableElement.getModifiers().contains(Modifier.STATIC);
             this.resultCastType = isVoid ? "" : String.format("(%s) rs", this.returnType);
         }
 
@@ -103,15 +108,14 @@ public class WireProxyGenerator {
         }
 
         /**
-         *
          * @return return a method function with block, return primitive type is not allowed
          */
-        public String compileToString() {
+        public String compileToString(ProcessingEnvironment processingEnv, String targetClassName) {
 
             StringBuilder argsBuilder = new StringBuilder();
             StringBuilder allTypes = new StringBuilder();
             StringBuilder allParams = new StringBuilder();
-            if(!parameterNames.isEmpty()) {
+            if (!parameterNames.isEmpty()) {
                 for (int i = 0, sz = parameterNames.size(); i < sz; i++) {
                     String type = parameterTypes.get(i);
                     String name = parameterNames.get(i);
@@ -120,13 +124,19 @@ public class WireProxyGenerator {
                     allTypes.append(", ").append(type).append(".class");
                     allParams.append(", ").append(name);
                 }
-                argsBuilder.setLength(argsBuilder.length()-1);
+                argsBuilder.setLength(argsBuilder.length() - 1);
             }
+
+            if(isStatic) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
+                        "Static Class have to use proxy class to call.");
+            }
+
 
             return String.format("%s %s %s(%s) {\n" +
                             "        try {\n" +
-                            "            Method m = this.classUsing.getDeclaredMethod(\"%s\"%s);\n" +
-                            "            Object rs = m.invoke(this.ctx%s);\n" +
+                            "            Method m = %s.getDeclaredMethod(\"%s\"%s);\n" +
+                            "            Object rs = m.invoke(%s%s);\n" +
                             "            return %s;\n" +
                             "        } catch (Exception e) {\n" +
                             "            e.printStackTrace();\n" +
@@ -134,7 +144,11 @@ public class WireProxyGenerator {
                             "        return %s;\n" +
                             "\n" +
                             " }\n\n", modifier, returnType, name, argsBuilder.toString(),
-                                name, allTypes.toString(), allParams.toString(), resultCastType, isVoid ? "" : "null");
+                    isStatic ? "com.github.taymindis.jdc.Jdc.wireClass(".concat(targetClassName).concat(".class)") : "this.classUsing",
+                    name, allTypes.toString(),
+                    isStatic ? "null" : "this.ctx",
+                    allParams.toString(),
+                    resultCastType, isVoid ? "" : "null");
 
 
         }

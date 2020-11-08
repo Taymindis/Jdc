@@ -5,22 +5,28 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.github.taymindis.jdc.Jdc.getClassPath;
 
-class WiredClassLoader extends ClassLoader{
-    private Class<?> thisClass;
-    protected WiredClassLoader(Class<?> thisClass) {
-        super(thisClass.getClassLoader());
-        this.thisClass = thisClass;
+class WiredClassLoader extends ClassLoader {
+
+    protected Set<String> resolvedClass = new HashSet<>();
+
+// it only reload default classpath
+    protected WiredClassLoader() {
+        super(WiredClassLoader.class.getClassLoader());
     }
 
-    protected Class<?> load() throws IOException {
-        String fullPath = getClassPath(thisClass);
-        return load(fullPath);
-    }
+    protected Class<?> load(Class<?> loadingClass) throws IOException, ClassNotFoundException {
+        // Expect class full name are same
+        String classFullName = loadingClass.getName();
+        if(resolvedClass.contains(classFullName)) {
+            return super.loadClass(classFullName); // Use default CL cache
+        }
 
-    protected Class<?> load(String classPath) throws IOException {
+        String classPath = getClassPath(loadingClass);
         InputStream input = null;
         ByteArrayOutputStream buffer = null;
         try {
@@ -30,23 +36,28 @@ class WiredClassLoader extends ClassLoader{
             buffer = new ByteArrayOutputStream();
             int data = input.read();
 
-            while(data != -1){
+            while (data != -1) {
                 buffer.write(data);
                 data = input.read();
             }
 
             byte[] classData = buffer.toByteArray();
-
+            Class<?> loadedClass;
             try {
-                return defineClass(thisClass.getCanonicalName(), classData, 0, classData.length);
-            } catch (ClassFormatError classFormatError) {
-                classFormatError.printStackTrace();
-            } catch (NoClassDefFoundError classFormatError) {
-                classFormatError.printStackTrace();
+                loadedClass = defineClass(classFullName, classData, 0, classData.length);
+            } catch (ClassFormatError | NoClassDefFoundError e) {
+                e.printStackTrace();
+                loadedClass = defineClass(null,
+                        classData, 0, classData.length);
             }
-            return defineClass(null,
-                    classData, 0, classData.length);
-
+            if (loadedClass != null) {
+                if (loadedClass.getPackage() == null) {
+                    definePackage(classFullName.replaceAll("\\.\\w+$", ""), null, null, null, null, null, null, null);
+                }
+                resolveClass(loadedClass);
+                resolvedClass.add(classFullName);
+            }
+            return loadedClass;
 //        } catch (MalformedURLException e) {
 //            e.printStackTrace();
 //        } catch (IOException e) {

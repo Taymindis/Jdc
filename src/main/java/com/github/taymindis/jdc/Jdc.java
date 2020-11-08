@@ -4,7 +4,6 @@ package com.github.taymindis.jdc;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
 
 import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_PREFIX;
 import static com.github.taymindis.jdc.WiredConstant.WIRE_PROXY_SUFFIX;
@@ -15,25 +14,17 @@ import static java.lang.reflect.Modifier.isPublic;
  */
 public class Jdc implements Serializable {
 
-
-    private static final Map<String, WiredClass> backupCache = new HashMap<>();
-    private static final Map<String, WiredClass> cache = new HashMap<>();
-
-    public static <T> T wireBean(Class<?> clazz) throws IOException, IllegalAccessException {
-        return wireBean(clazz, getClassPath(clazz));
-    }
-
+    private static WiredClassLoader wiredClassLoader = null;
+    private static boolean hotReloading = false;
 
     /**
-     *
      * @param clazz         the current class
-     * @param classFilePath classFilePath /user/home/../../xxx.class
-     * @param <T> The return generic type
+     * @param <T>           The return generic type
      * @return WiredContext
      * @throws IOException            IO Class not found
      * @throws IllegalAccessException Illegal Bean Access
      */
-    public static <T> T wireBean(Class<?> clazz, String classFilePath) throws IOException, IllegalAccessException {
+    public static <T> T wireBean(Class<?> clazz) throws IOException, IllegalAccessException {
         if (!Serializable.class.isAssignableFrom(clazz)) {
             throw new NotSerializableException(clazz.getName().concat(" should be serializable"));
         }
@@ -42,24 +33,15 @@ public class Jdc implements Serializable {
         }
         String key = generateKey(clazz);
         Object wiredProxy;
-        if (!has(key)) {
-            if (classFilePath == null) {
-                classFilePath = getClassPath(clazz);
-            }
-            WiredClass wiredClass = wireClass(key, clazz, classFilePath);
-            wiredProxy = getNewContext(wiredClass, clazz);
-            store(key, wiredClass);
-        } else {
-            WiredClass wiredClass = retrieve(key);
-            wiredProxy = getNewContext(wiredClass, clazz);
-        }
+        WiredClass wiredClass = wireClass(key, clazz);
+        wiredProxy = getNewContext(wiredClass, clazz);
         return (T) wiredProxy;
     }
 
     private static Object getNewContext(WiredClass wiredClass, Class<?> originClass) {
         try {
             Class<?> wireProxyClass = wiredClass.getProxyClass();
-            if(wireProxyClass == null) {
+            if (wireProxyClass == null) {
                 wireProxyClass = Class.forName(originClass.getPackage().getName().concat(".").concat(WIRE_PROXY_PREFIX)
                         .concat(originClass.getSimpleName()).concat(WIRE_PROXY_SUFFIX));
                 wiredClass.setProxyClass(wireProxyClass);
@@ -91,7 +73,7 @@ public class Jdc implements Serializable {
 
     protected static String getClassPath(Class<?> clz) {
         return clz.getProtectionDomain().getCodeSource().getLocation()
-                .getPath().concat(clz.getCanonicalName().replace(".", File.separator).concat(".class"));
+                .getPath().concat(clz.getName().replace(".", File.separator).concat(".class"));
     }
 
 
@@ -148,11 +130,14 @@ public class Jdc implements Serializable {
 //        T parsedObj = (T) gson.fromJson(gson.toJson(o), clz);
 //        return parsedObj;
 //    }
-    private static WiredClass wireClass(String key, Class<?> clazz, String classFilePath) {
-        WiredClassLoader cl = new WiredClassLoader(clazz);
+    private static WiredClass wireClass(String key, Class<?> clazz) {
+        if (hotReloading || wiredClassLoader == null) {
+            wiredClassLoader = new WiredClassLoader();
+            hotReloading = false;
+        }
         try {
-            Class<?> clz = classFilePath != null ? cl.load(classFilePath) : cl.load();
-            WiredClass wiredClass = new WiredClass(key, clz, classFilePath);
+            Class<?> clz = wiredClassLoader.load(clazz);
+            WiredClass wiredClass = new WiredClass(key, clz);
             return wiredClass;
         } catch (Exception e) {
             e.printStackTrace();
@@ -160,29 +145,9 @@ public class Jdc implements Serializable {
         return null;
     }
 
-
-    public static boolean has(String key) {
-        return cache.containsKey(key);
-    }
-
-    public static void store(String key, WiredClass wiredContext) {
-        cache.put(key, wiredContext);
-    }
-
-    public static WiredClass retrieve(String key) {
-        return cache.get(key);
-    }
-
-    public static boolean hasBackup(String key) {
-        return backupCache.containsKey(key);
-    }
-
-    public static void storeBackup(String key, WiredClass wiredContext) {
-        backupCache.put(key, wiredContext);
-    }
-
-    public static WiredClass retrieveBackup(String key) {
-        return backupCache.get(key);
+    public static Class<?> wireClass(Class<?> clazz) throws IOException, ClassNotFoundException {
+        WiredClass wiredClass = wireClass(generateKey(clazz), clazz);
+        return wiredClass.getClazz();
     }
 
 //    public static void reload() {
@@ -213,33 +178,8 @@ public class Jdc implements Serializable {
 ////        }
 //    }
 
-    public static void reload(Class<?> clazz) {
-        reload(clazz, false);
-    }
-//
-    public static void reload(Class<?> clazz, boolean rollbackable) {
-        String key = generateKey(clazz);
-        if (rollbackable && cache.containsKey(key)) {
-            storeBackup(key, retrieve(key));
-        }
-        delete(key);
-    }
-
-    // not thread  safe
-    public static void delete(String key) {
-        cache.remove(key);
-    }
-
-
-    // not thread  safe
-    public static void rollback() {
-        cache.clear();
-        cache.putAll(backupCache);
-    }
-
-    public static void rollback(Class<?> clazz) {
-        String key = generateKey(clazz);
-        store(key, retrieveBackup(key));
+    public static void hotReload() {
+        hotReloading = true;
     }
 
     protected static String generateKey(Class<?> clazz) {

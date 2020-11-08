@@ -81,7 +81,7 @@ public class WiredProcessor extends AbstractProcessor {
                         packageElement.getQualifiedName() + "." + proxyClassName);
 
                 try( Writer writter = fileObject.openWriter() ) {
-                    writter.append(wireProxyGenerator.compileToString());
+                    writter.append(wireProxyGenerator.compileToString(processingEnv));
                 }
             } catch( final IOException ex ) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, ex.getMessage());
