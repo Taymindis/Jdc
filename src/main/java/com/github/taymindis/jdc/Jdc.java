@@ -25,8 +25,10 @@ public class Jdc implements Serializable {
 
 
     /**
+     *
      * @param clazz         the current class
      * @param classFilePath classFilePath /user/home/../../xxx.class
+     * @param <T> The return generic type
      * @return WiredContext
      * @throws IOException            IO Class not found
      * @throws IllegalAccessException Illegal Bean Access

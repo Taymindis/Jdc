@@ -102,6 +102,10 @@ public class WireProxyGenerator {
             parameterNames.add(parameterName);
         }
 
+        /**
+         *
+         * @return return a method function with block, return primitive type is not allowed
+         */
         public String compileToString() {
 
             StringBuilder argsBuilder = new StringBuilder();

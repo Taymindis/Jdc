@@ -60,6 +60,13 @@ public class WiredProcessor extends AbstractProcessor {
 //                executableElement.getParameters().get(0).asType().toString()
 //                executableElement.getParameters().get(1).asType();
 
+                if(executableElement.getReturnType().getKind().isPrimitive()) {
+                    processingEnv.getMessager().printMessage(
+                            Diagnostic.Kind.ERROR, String.format("Method %s return primitive type is not allowed, please change to Object type", executableElement.getSimpleName()));
+                    return true;
+                }
+
+
                 WireProxyGenerator.Method method = new WireProxyGenerator.Method(executableElement, methodTree);
                 for(VariableElement v: executableElement.getParameters()) {
                     method.addParameter(v.asType().toString(), v.getSimpleName().toString());
