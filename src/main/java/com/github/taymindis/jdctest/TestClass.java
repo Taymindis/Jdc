@@ -5,7 +5,6 @@ package com.github.taymindis.jdctest;
 import com.github.taymindis.jdc.Jdc;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 
 public class TestClass {
 

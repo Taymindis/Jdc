@@ -5,6 +5,8 @@ import com.sun.source.tree.MethodTree;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeVariable;
 import javax.tools.Diagnostic;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,8 +94,19 @@ public class WireProxyGenerator {
 
         public Method(ExecutableElement executableElement, MethodTree tree) {
             this.name = tree.getName() + "";
-            this.modifier = tree.getModifiers().toString();
+            if(isGenericReturnType(executableElement)) {
+                String boundType = "";
+                if(executableElement.getReturnType() instanceof TypeVariable) {
+                    boundType = ((TypeVariable) executableElement.getReturnType()).getUpperBound() + "";
+                }
+                this.modifier = tree.getModifiers().toString().concat("<").concat(executableElement.getReturnType().toString())
+                        .concat(" extends ").concat(boundType).concat("> ");
+            } else {
+                this.modifier = tree.getModifiers().toString();
+            }
+
             this.returnType = executableElement.getReturnType().toString();
+
             this.parameterNames = new ArrayList<>();
             this.parameterTypes = new ArrayList<>();
 //            this.methodBody = tree.getBody().toString();
@@ -158,4 +171,8 @@ public class WireProxyGenerator {
 ////        ((TypeElement)processingEnv.getTypeUtils().asElement(executableElement.getParameters().get(1).asType())).getQualifiedName()
 //        return type.toString();
 //    }
+
+    private static boolean isGenericReturnType(ExecutableElement executableElement) {
+        return executableElement.getReturnType().getKind().compareTo(TypeKind.TYPEVAR) == 0;
+    }
 }
