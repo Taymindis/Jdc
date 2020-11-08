@@ -4,7 +4,6 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
-import sun.tools.java.Type;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
