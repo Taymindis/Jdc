@@ -18,7 +18,6 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
-import java.io.Serializable;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,8 +112,9 @@ public class WiredProcessor extends AbstractProcessor {
 
 
             try {
+                String packageName = packageElement.isUnnamed() ? "" : packageElement.getQualifiedName() + ".";
                 final JavaFileObject fileObject = processingEnv.getFiler().createSourceFile(
-                        packageElement.getQualifiedName() + "." + proxyClassName);
+                         packageName.concat(proxyClassName));
 
                 try (Writer writter = fileObject.openWriter()) {
                     writter.append(wireProxyGenerator.compileToString(processingEnv));
@@ -177,10 +177,10 @@ public class WiredProcessor extends AbstractProcessor {
 
     private boolean isSerializable(TypeElement type) {
         TypeMirror serializable = elementUtils.getTypeElement("java.io.Serializable").asType();
-        TypeMirror wiredCommandType = elementUtils.getTypeElement(WiredCommand.class.getName()).asType();
+//        TypeMirror wiredCommandType = elementUtils.getTypeElement(WiredCommand.class.getName()).asType();
 
-        if (!typeUtils.isAssignable(type.asType(), serializable) &&
-            !typeUtils.isAssignable(type.asType(), wiredCommandType)
+        if (!typeUtils.isAssignable(type.asType(), serializable)
+//                && !typeUtils.isAssignable(type.asType(), wiredCommandType)
         ) {
             processingEnv.getMessager().printMessage(
                     Diagnostic.Kind.ERROR, String.format("%s should be serializable " +

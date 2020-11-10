@@ -2,15 +2,14 @@ package com.github.taymindis.jdctest;
 
 import com.github.taymindis.jdc.SkipWire;
 import com.github.taymindis.jdc.Wired;
-import com.github.taymindis.jdc.WiredCommand;
 
 import java.io.Serializable;
 
 @Wired
-public class TestBean implements Serializable, WiredCommand {
+public class TestBean implements Serializable {
 
     public String myMethod(String abc, Integer a)  {
-        return "TestBean.............";
+        return "com.github.taymindis.jdctest.TestBean.............";
     }
     public void execute(String abc, Integer a)  {
          System.out.println("ASDASDASDASD");
@@ -19,7 +18,6 @@ public class TestBean implements Serializable, WiredCommand {
          System.out.println("ASDASASDASDASDASDASDASD");
     }
 
-    @Override
     public <T> T execute(String commandName, Object... args) {
         switch (commandName) {
             case "ABC":
@@ -58,6 +56,14 @@ public class TestBean implements Serializable, WiredCommand {
 
 
         return null;
+    }
+
+
+    public void _jspService(final javax.servlet.http.HttpServletRequest request, final javax.servlet.http.HttpServletResponse response)
+            throws java.io.IOException, javax.servlet.ServletException {
+
+        System.out.println("ASDASD");
+
     }
 
 

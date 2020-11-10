@@ -19,7 +19,9 @@ public class WireProxyGenerator {
     private String proxyClassName;
 
     public WireProxyGenerator(String packageQualifiedName, String targetClassName, String proxyClassName) {
-        this.packageQualifiedName = packageQualifiedName;
+        this.packageQualifiedName = packageQualifiedName != null
+                && !packageQualifiedName.isEmpty()
+        ? "package ".concat(packageQualifiedName).concat(";") : "";
         this.targetClassName = targetClassName;
         this.proxyClassName = proxyClassName;
     }
@@ -36,7 +38,7 @@ public class WireProxyGenerator {
             methodBuilder.append(m.compileToString(processingEnv, targetClassName));
         }
 
-        return String.format("package %s;\n" +
+        return String.format("%s\n" +
                         "\n" +
                         "import java.lang.reflect.Method;\n" +
                         "\n" +

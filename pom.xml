@@ -60,7 +60,18 @@
 <!--            <artifactId>gson</artifactId>-->
 <!--            <version>2.8.6</version>-->
 <!--        </dependency>-->
-
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>2.5</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet.jsp</groupId>
+            <artifactId>jsp-api</artifactId>
+            <version>2.2</version>
+            <scope>provided</scope>
+        </dependency>
 
 
         <!-- https://mvnrepository.com/artifact/junit/junit -->
@@ -77,6 +88,12 @@
 <!--            <artifactId>javassist</artifactId>-->
 <!--            <version>3.12.1.GA</version>-->
 <!--        </dependency>-->
+        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.11</version>
+        </dependency>
 
     </dependencies>
 
@@ -156,6 +173,7 @@
             </plugin>
 
 
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -165,33 +183,47 @@
                     <target>1.7</target>
                     <proc>none</proc>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>default-compile</id>
-                        <phase>validate</phase>
-                        <configuration>
-                            <proc>none</proc>
-                            <includes>
-                                <include>com/github/taymindis/jdc/Jdc.java</include>
-                                <include>com/github/taymindis/jdc/WiredProcessor.java</include>
-                                <include>com/github/taymindis/jdc/Wired.java</include>
-                                <include>com/github/taymindis/jdc/WiredContext.java</include>
-                                <include>com/github/taymindis/jdctest/TestBean.java</include>
-                                <include>com/github/taymindis/jdctest/TestClass.java</include>
-                            </includes>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <phase>compile</phase>
-                        <goals><goal>compile</goal></goals>
-                        <configuration>
-                            <proc>only</proc>
-                            <annotationProcessors>
-                                <annotationProcessor>com.github.taymindis.jdc.WiredProcessor</annotationProcessor>
-                            </annotationProcessors>
-                        </configuration>
-                    </execution>
-                </executions>
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>default-compile</id>-->
+<!--                        <phase>validate</phase>-->
+<!--                        <configuration>-->
+<!--                            <proc>none</proc>-->
+<!--                            <includes>-->
+<!--                                <include>com/github/taymindis/jdc/Jdc.java</include>-->
+<!--                                <include>com/github/taymindis/jdc/WiredProcessor.java</include>-->
+<!--                                <include>com/github/taymindis/jdc/JspPaasProcessor.java</include>-->
+<!--                                <include>com/github/taymindis/jdc/Wired.java</include>-->
+<!--                                <include>com/github/taymindis/jdc/WiredContext.java</include>-->
+<!--                                <include>com/github/taymindis/jdctest/TestBean.java</include>-->
+<!--                                <include>com/github/taymindis/jdctest/TestClass.java</include>-->
+<!--                            </includes>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--                    <execution>-->
+<!--                        <phase>compile</phase>-->
+<!--                        <goals><goal>compile</goal></goals>-->
+<!--                        <configuration>-->
+<!--                            <proc>only</proc>-->
+<!--                            <annotationProcessors>-->
+<!--                                <annotationProcessor>com.github.taymindis.jdc.WiredProcessor</annotationProcessor>-->
+<!--                            </annotationProcessors>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--&lt;!&ndash;                    <execution>&ndash;&gt;-->
+<!--&lt;!&ndash;                        <id>process-test-annotations</id>&ndash;&gt;-->
+<!--&lt;!&ndash;                        <phase>generate-test-resources</phase>&ndash;&gt;-->
+<!--&lt;!&ndash;                        <goals>&ndash;&gt;-->
+<!--&lt;!&ndash;                            <goal>testCompile</goal>&ndash;&gt;-->
+<!--&lt;!&ndash;                        </goals>&ndash;&gt;-->
+<!--&lt;!&ndash;                        <configuration>&ndash;&gt;-->
+<!--&lt;!&ndash;                            <proc>only</proc>&ndash;&gt;-->
+<!--&lt;!&ndash;                            <annotationProcessors>&ndash;&gt;-->
+<!--&lt;!&ndash;                                <annotationProcessor>com.github.taymindis.jdc.WiredProcessor</annotationProcessor>&ndash;&gt;-->
+<!--&lt;!&ndash;                            </annotationProcessors>&ndash;&gt;-->
+<!--&lt;!&ndash;                        </configuration>&ndash;&gt;-->
+<!--&lt;!&ndash;                    </execution>&ndash;&gt;-->
+<!--                </executions>-->
             </plugin>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
