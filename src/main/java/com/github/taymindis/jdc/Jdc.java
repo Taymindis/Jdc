@@ -18,8 +18,8 @@ public class Jdc implements Serializable {
     private static boolean hotReloading = false;
 
     /**
-     * @param clazz         the current class
-     * @param <T>           The return generic type
+     * @param clazz the current class
+     * @param <T>   The return generic type
      * @return WiredContext
      * @throws IOException            IO Class not found
      * @throws IllegalAccessException Illegal Bean Access
@@ -38,14 +38,49 @@ public class Jdc implements Serializable {
         return (T) wiredProxy;
     }
 
+    /**
+     * @param clazz the current class
+     * @return WiredContext
+     * @throws IOException            IO Class not found
+     * @throws IllegalAccessException Illegal Bean Access
+     */
+    public static WiredMethod wireMethod(Class<?> clazz) throws IOException, IllegalAccessException {
+        if (!Serializable.class.isAssignableFrom(clazz)) {
+            throw new NotSerializableException(clazz.getName().concat(" should be serializable"));
+        }
+        if (!isPublic(clazz.getModifiers())) {
+            throw new IllegalAccessException(clazz.getName().concat(" should be public class"));
+        }
+        String key = generateKey(clazz);
+        WiredClass wiredClass = wireClass(key, clazz);
+        WiredMethod wiredMethod = getMethodContext(wiredClass, clazz);
+        return wiredMethod;
+    }
+
+    private static WiredMethod getMethodContext(WiredClass wiredClass, Class<?> originClass) {
+        try {
+            Class<?> newLoadedClass = wiredClass.getClazz();
+            Object wiredObject = instantiate(newLoadedClass);
+
+            WiredMethod wiredMethod = new WiredMethod();
+            wiredMethod.setCtx(wiredObject);
+            wiredMethod.setClassUsing(newLoadedClass);
+
+            return wiredMethod;
+        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     private static Object getNewContext(WiredClass wiredClass, Class<?> originClass) {
         try {
-            Class<?> wireProxyClass = wiredClass.getProxyClass();
-            if (wireProxyClass == null) {
-                wireProxyClass = Class.forName(originClass.getPackage().getName().concat(".").concat(WIRE_PROXY_PREFIX)
-                        .concat(originClass.getSimpleName()).concat(WIRE_PROXY_SUFFIX));
-                wiredClass.setProxyClass(wireProxyClass);
-            }
+//            Class<?> wireProxyClass = wiredClass.getProxyClass();
+//            if (wireProxyClass == null) {
+            Class<?> wireProxyClass = Class.forName(originClass.getPackage().getName().concat(".").concat(WIRE_PROXY_PREFIX)
+                    .concat(originClass.getSimpleName()).concat(WIRE_PROXY_SUFFIX));
+            wiredClass.setProxyClass(wireProxyClass);
+//            }
 
             Object wiredProxy = wireProxyClass.getConstructor().newInstance();
 
